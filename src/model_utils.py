@@ -16,15 +16,16 @@ import matplotlib.patches as patches
 from matplotlib.path import Path
 
 def causal_inference(data, target_col=-1, scale_data=False, method="DirectLiNGAM"):
-    """_summary_
+    """Perform cuasal inference using 
 
     Args:
         data (_type_): _description_
-        target_col (int, optional): _description_. Defaults to -1.
-        scale_data (bool, optional): _description_. Defaults to False.
+        target_col (int, optional):  Defaults to -1.
+        scale_data (bool, optional): Defaults to False.
+        method (str, optional): Defaults to DirectLiNGAM 
 
     Returns:
-        _type_: _description_
+        model object 
     """
     if scale_data:
         scaler = StandardScaler()
@@ -44,14 +45,14 @@ def causal_inference(data, target_col=-1, scale_data=False, method="DirectLiNGAM
 
 
 def make_graph(adjacency_matrix, labels=None):
-    """_summary_
+    """generates a graph object for a given adjacency matrix
 
     Args:
-        adjacency_matrix (_type_): _description_
-        labels (_type_, optional): _description_. Defaults to None.
+        adjacency_matrix (_type_): array-like
+        labels (_type_, optional): node-labels
 
     Returns:
-        _type_: _description_
+        graph
     """
     idx = np.abs(adjacency_matrix) > 0.01
     dirs = np.where(idx)
@@ -69,16 +70,19 @@ def select_features(
     target_column="polarizability",
     ignore_columns=["smiles", "dipole"],
 ):
-    """_summary_
+    """select the features based on caual associations with target_column
 
     Args:
-        dataframe (_type_): _description_
-        nkeep (int, optional): _description_. Defaults to 6.
-        target_column (str, optional): _description_. Defaults to 'polarizability'.
-        ignore_columns (list, optional): _description_. Defaults to ['smiles', 'dipole'].
+        dataframe (pd.DataFrame): the data
+        nkeep (int, optional): number of features to be kept. Defaults to 6.
+        target_column (str, optional): column that is being targeted. Defaults to 'polarizability'.
+        ignore_columns (list, optional): data columns that should not be used. Defaults to ['smiles', 'dipole'].
 
     Returns:
-        _type_: _description_
+        dataframe (pd.DataFrame): the types of the data
+        X_columns_keep (list): the columns which were kept 
+        adjacency matrix (array-like): the adjacency matrix
+        ranked_weights (list): weights for each feature
     """
     # fabulous error checking
     if (nkeep is not None) and (epsilon_keep is not None):
