@@ -12,20 +12,23 @@ import pandas as pd
 from rdkit.Chem import AllChem
 from rdkit import DataStructs
 import rdkit
+import matplotlib as mpl
 import matplotlib.patches as patches
 from matplotlib.path import Path
+import matplotlib.pyplot as plt
+
 
 def causal_inference(data, target_col=-1, scale_data=False, method="DirectLiNGAM"):
-    """Perform cuasal inference using 
+    """Perform causal inference using
 
     Args:
         data (_type_): _description_
         target_col (int, optional):  Defaults to -1.
         scale_data (bool, optional): Defaults to False.
-        method (str, optional): Defaults to DirectLiNGAM 
+        method (str, optional): Defaults to DirectLiNGAM
 
     Returns:
-        model object 
+        model object
     """
     if scale_data:
         scaler = StandardScaler()
@@ -80,7 +83,7 @@ def select_features(
 
     Returns:
         dataframe (pd.DataFrame): the types of the data
-        X_columns_keep (list): the columns which were kept 
+        X_columns_keep (list): the columns which were kept
         adjacency matrix (array-like): the adjacency matrix
         ranked_weights (list): weights for each feature
     """
@@ -94,13 +97,13 @@ def select_features(
         return
 
     column_names = list(dataframe.columns)
-    X_columns = copy.copy(column_names)
+    x_columns = copy.copy(column_names)
     for ignore in ignore_columns:
-        X_columns.remove(ignore)
-    print("Columns used for feature selection", X_columns)
-    target_column_ind = X_columns.index(target_column)
-    X = dataframe[X_columns].to_numpy()
-    model = causal_inference(X, target_col=target_column_ind)
+        x_columns.remove(ignore)
+    print("Columns used for feature selection", x_columns)
+    target_column_ind = x_columns.index(target_column)
+    x = dataframe[x_columns].to_numpy()
+    model = causal_inference(x, scale_data=True, target_col=target_column_ind)
     ranked_features = np.argsort(np.abs(model.adjacency_matrix_.mean(axis=0)))[::-1]
     ranked_weights = np.sort(np.abs(model.adjacency_matrix_.mean(axis=0)))[::-1]
     if nkeep is not None:
@@ -110,12 +113,12 @@ def select_features(
         print(ranked_weights)
         feature_inds = ranked_features[ranked_weights > epsilon_keep]
         print(feature_inds)
-    X_columns_keep = [X_columns[ind] for ind in feature_inds]
-    X_columns_keep.append("dipole")
-    print("Columns kept after feature selection", X_columns_keep)
+    x_columns_keep = [x_columns[ind] for ind in feature_inds]
+    x_columns_keep.append("dipole")
+    print("Columns kept after feature selection", x_columns_keep)
     return (
-        dataframe[X_columns_keep],
-        X_columns_keep,
+        dataframe[x_columns_keep],
+        x_columns_keep,
         model.adjacency_matrix_,
         ranked_weights,
     )
@@ -281,9 +284,8 @@ def get_data_fingerprints(data, smiles_column):
     """_summary_
 
     Args:
-        data (_type_): _description_
-        target_col (int, optional): _description_. Defaults to -1.
-        scale_data (bool, optional): _description_. Defaults to False.
+        data (_type_): dataframe
+        smiles_columns: column name corresonding to the column with smiles 
 
     Returns:
         _type_: _description_
@@ -292,6 +294,7 @@ def get_data_fingerprints(data, smiles_column):
     for mol in data[smiles_column].to_list():
         all_fp.append(ECFP_from_smiles(mol))
     return all_fp
+
 
 def get_tanimoto_similarities(fingerprintsA, fingerprintsB):
     """_summary_
@@ -304,7 +307,11 @@ def get_tanimoto_similarities(fingerprintsA, fingerprintsB):
     Returns:
         _type_: _description_
     """
-    return [DataStructs.TanimotoSimilarity( fingerprintsA[i], fingerprintsB[i]) for i in range(len(fingerprintsA))]
+    return [
+        DataStructs.TanimotoSimilarity(fingerprintsA[i], fingerprintsB[i])
+        for i in range(len(fingerprintsA))
+    ]
+
 
 def ECFP_from_smiles(smiles, R=2, L=2**10, use_features=False, use_chirality=False):
     """_summary_
@@ -327,7 +334,10 @@ def ECFP_from_smiles(smiles, R=2, L=2**10, use_features=False, use_chirality=Fal
     )
     return feature_list
 
-def get_top_k_close_molecules(k, distances, reference_df, original_df, include_dipole=True):
+
+def get_top_k_close_molecules(
+    k, distances, reference_df, original_df, include_dipole=True
+):
     """_summary_
 
     Args:
@@ -341,39 +351,44 @@ def get_top_k_close_molecules(k, distances, reference_df, original_df, include_d
     closest_smiles = []
     closest_smiles_dipole = []
     for molecule_id in range(distances.shape[0]):
-        closest_k_distances = np.sort(distances[molecule_id,:])[:k]
-        closest_k = np.argsort(distances[molecule_id,:])[:k]
+        closest_k_distances = np.sort(distances[molecule_id, :])[:k]
+        closest_k = np.argsort(distances[molecule_id, :])[:k]
         if include_dipole:
-            closest_smiles.append( [original_df.loc[molecule_id].smiles] +
-                            [ reference_df.loc[j].smiles for j in closest_k] + [ reference_df.loc[j].dipole for j in closest_k] + list(closest_k_distances) )
-            column_titles = ['original'] + [f'closest_{j}' for j in range(k)] + [f'closest_{j}_dipole' for j in range(k)] + [f'closest_{j}_distance' for j in range(k)]
-    
+            closest_smiles.append(
+                [original_df.loc[molecule_id].smiles]
+                + [reference_df.loc[j].smiles for j in closest_k]
+                + [reference_df.loc[j].dipole for j in closest_k]
+                + list(closest_k_distances)
+            )
+            column_titles = (
+                ["original"]
+                + [f"closest_{j}" for j in range(k)]
+                + [f"closest_{j}_dipole" for j in range(k)]
+                + [f"closest_{j}_distance" for j in range(k)]
+            )
+
     return pd.DataFrame(closest_smiles, columns=column_titles)
+
 
 def plot_path_between(pointA, pointB, ax):
     before = pointA
     after = pointB
 
-    path_data = [
-        (Path.MOVETO, pointA),
-        (Path.CURVE4, pointB )
-        ]
+    path_data = [(Path.MOVETO, pointA), (Path.CURVE4, pointB)]
 
-    verts = [pointA,
-             (pointA+pointB)/2+np.random.randn()*.5,
-            pointB] 
+    verts = [pointA, (pointA + pointB) / 2 + np.random.randn() * 0.5, pointB]
 
-    codes = [Path.MOVETO, 
-             Path.CURVE3,
-             Path.CURVE3
-            ]
-             
+    codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
+
     # codes, verts = zip(*path_data)
     path = Path(verts, codes)
-    patch = patches.FancyArrowPatch(path=path, facecolor='k', arrowstyle="-|>,head_length=5,head_width=3")
+    patch = patches.FancyArrowPatch(
+        path=path, facecolor="k", arrowstyle="-|>,head_length=5,head_width=3"
+    )
     ax.add_patch(patch)
 
     return ax
+
 
 def getcolordensity_contour(xdata, ydata):
     """_summary_
@@ -394,6 +409,7 @@ def getcolordensity_contour(xdata, ydata):
     hist2d = hist2d / np.amax(hist2d)
 
     return BCTX, BCTY, hist2d
+
 
 def draw_molecules(molecules, prefix, molsPerRow=3, maxMols=100):
     """_summary_
@@ -426,3 +442,98 @@ def draw_molecules(molecules, prefix, molsPerRow=3, maxMols=100):
     )
     with open(f"{prefix}.png", "wb") as f:
         f.write(best_png.data)
+
+
+def plot_iterative_adjs(adjs_active, global_adj, labels, save=True):
+    """_summary_
+
+    Args:
+        adjs_active: actively-learned adjacency matrices for each iteration (n_feat x n_feat x n_iteration)
+
+    Returns:
+        _type_: _description_
+    """
+    glob_max = np.max(np.array(adjs_active))
+    glob_min = np.min(np.array(adjs_active))
+    scale = glob_max - glob_min
+    print(glob_max, glob_min)
+
+    # plot the adjacency matrices
+    f, ax = plt.subplots(1, 4, figsize=(8, 2))
+    iterations = [4, 19, 39]
+    for i, iteration in enumerate(iterations):
+        ax[i].set_title("iteration {0}".format(iteration + 1))
+        scale = np.max(
+            [np.abs(np.min(adjs_active[iteration])), np.max(adjs_active[iteration])]
+        )
+        ax[i].imshow(adjs_active[iteration], cmap="RdBu", vmin=-scale, vmax=scale)
+        d = make_graph(adjs_active[iteration], labels=labels)
+        d.render(f"figures/iteration_{iteration}_graph")
+        ax[i].set_xticks([])
+        ax[i].set_yticks([])
+    imax = ax[-1].imshow(global_adj, cmap="RdBu", vmin=-scale, vmax=scale)
+    ax[-1].set_xticks([])
+    ax[-1].set_yticks([])
+    ax[-1].set_title("global")
+    plt.colorbar(imax)
+    if save:
+        f.savefig("figures/adj_by_iteration.eps")
+        f.savefig("figures/adj_by_iteration.pdf")
+        f.savefig("figures/adj_by_iteration.svg")
+
+
+def plot_subset_choices(subsets_active):
+    """_summary_
+
+    Args:
+        adjs_active: actively-learned adjacency matrices for each iteration (n_feat x n_feat x n_iteration)
+
+    Returns:
+        _type_: _description_
+    """
+    f, ax = plt.subplots(figsize=(2, 2))
+    height, _ = np.histogram(subsets_active, bins=[-0.5, 0.5, 1.5, 2.5])
+
+    ax.bar(np.arange(3), height, facecolor="k")
+    ax.set_xlabel("data subset")
+    ax.set_xticks([0, 1, 2])
+    ax.set_xticklabels(["$\mathcal{D}_1$", "$\mathcal{D}_2$", "$\mathcal{D}_3$"])
+    ax.set_ylabel("# selections")
+    ax.spines[["right", "top"]].set_visible(False)
+
+    f.tight_layout()
+    f.savefig("figures/subset_choice_freqs.eps")
+    f.savefig("figures/subset_choice_freqs.pdf")
+    f.savefig("figures/subset_choice_freqs.svg")
+
+
+def plot_sampled_molecular_space(embedding, embedding_test):
+    """_summary_
+
+    Args:
+        adjs_active: actively-learned adjacency matrices for each iteration (n_feat x n_feat x n_iteration)
+
+    Returns:
+        _type_: _description_
+    """
+    n_iter = 3
+    f, axs = plt.subplots(1, 4, figsize=(8, 2))
+    bctx, bcty, hist2d = getcolordensity_contour(embedding[::50, 0], embedding[::50, 1])
+
+    colors = mpl.colormaps["viridis"](np.linspace(0, 1, n_iter))
+
+    for i in range(n_iter):
+        ax = axs[i]
+        ax.contourf(
+            bctx, bcty, hist2d, vmin=0.0, vmax=1, levels=10, cmap="Reds"
+        )  # , alpha=0.5)
+        downsampled = embedding_test[i * 100 : i * 100 + 100, :]
+        ax.scatter(
+            downsampled[:100, 0], downsampled[:100, 1], s=5, color=colors[i], alpha=1
+        )
+        ax.set_xlabel("$\phi_1$", size=12)
+        ax.set_ylabel("$\phi_2$", size=12)
+        ax.set_xlim([-1.5, 1.5])
+        ax.set_ylim([-1.5, 1.5])
+    f.tight_layout()
+    f.savefig("figures/embeddings")
