@@ -1,7 +1,7 @@
-active_molecules
+## CauMol: Active Causal Learning for Decoding Chemical Complexities with Targeted Interventions
 ==============================
 
-Code corresponding with "Active Causal Learning for Decoding Chemical Complexities with Targeted Interventions" by Z Fox and A Ghosh
+Code corresponding with [Active Causal Learning for Decoding Chemical Complexities with Targeted Interventions](https://arxiv.org/abs/2404.04224) by Zachary Fox and Ayana Ghosh
 
 Project Organization
 ------------
