@@ -91,3 +91,4 @@ target/
 
 # specific
 notebooks/figures
+reports/*
